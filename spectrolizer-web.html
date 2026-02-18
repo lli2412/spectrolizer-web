@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrolizer Pro - Web Version</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --panel-bg: rgba(20, 20, 20, 0.8);
+            --accent: #00f3ff;
+            --accent-secondary: #ff0055;
+            --text: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* CANVAS */
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #0a0a1a 0%, #1a0a2a 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI LAYER */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px var(--accent);
+        }
+
+        .info-text {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        /* CONTROLS PANEL */
+        .controls {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px 20px 0 0;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button, .btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text);
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        button:hover, .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        button.active, .btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent);
+        }
+
+        button.play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            border: 2px solid var(--accent);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* MODE SELECTOR */
+        .mode-selector {
+            position: absolute;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 8px;
+            border-radius: 20px;
+            pointer-events: auto;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        .mode-btn {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            border-radius: 20px;
+        }
+
+        /* EQUALIZER PANEL */
+        .eq-panel {
+            position: absolute;
+            left: 20px;
+            top: 120px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 15px;
+            border-radius: 15px;
+            width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            pointer-events: auto;
+            z-index: 1000;
+        }
+
+        .eq-panel.active {
+            display: block;
+        }
+
+        .eq-band {
+            margin-bottom: 10px;
+        }
+
+        .eq-band label {
+            display: block;
+            font-size: 0.75rem;
+            margin-bottom: 3px;
+            color: var(--accent);
+        }
+
+        .eq-band input[type="range"] {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+        }
+
+        /* THEME SELECTOR */
+        .theme-panel {
+            position: absolute;
+            right: 20px;
+            top: 120px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 243, 255, 0.3);
+            padding: 15px;
+            border-radius: 15px;
+            display: none;
+            pointer-events: auto;
+            z-index: 1000;
+        }
+
+        .theme-panel.active {
+            display: block;
+        }
+
+        .theme-btn {
+            display: block;
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px;
+            text-align: left;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-btn:hover {
+            background: rgba(0, 243, 255, 0.2);
+            border-color: var(--accent);
+        }
+
+        .theme-btn.active {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        /* STATS */
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            pointer-events: auto;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+        }
+
+        .stat-item {
+            margin: 2px 0;
+        }
+
+        .stat-label {
+            color: var(--accent);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="visualizer"></canvas>
+
+        <div class="ui-layer">
+            <!-- TOP BAR -->
+            <div class="top-bar">
+                <h1>Spectrolizer <span style="color:var(--accent)">Pro</span></h1>
+                <div class="info-text">
+                    <span id="status-text">🎵 Ready</span>
+                    <span id="genre-text" style="color: var(--accent);">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- EQUALIZER PANEL -->
+        <div class="eq-panel" id="eq-panel">
+            <h3 style="color: var(--accent); margin-bottom: 10px; font-size: 0.9rem;">🎚️ Equalizer</h3>
+            <div id="eq-bands"></div>
+        </div>
+
+        <!-- THEME PANEL -->
+        <div class="theme-panel" id="theme-panel">
+            <h3 style="color: var(--accent); margin-bottom: 10px; font-size: 0.9rem;">🎨 Themes</h3>
+            <div id="theme-buttons"></div>
+        </div>
+
+        <!-- MODE SELECTOR -->
+        <div class="mode-selector" id="mode-selector"></div>
+
+        <!-- CONTROLS -->
+        <div class="controls">
+            <div class="btn-group">
+                <label class="btn" style="margin: 0; cursor: pointer;">
+                    📂 Load
+                    <input type="file" id="audio-upload" accept="audio/*">
+                </label>
+            </div>
+
+            <div class="btn-group">
+                <button id="mic-btn">🎙️ Mic</button>
+                <button id="eq-btn">🎚️ EQ</button>
+                <button id="theme-btn">🎨 Theme</button>
+                <button class="play-btn" id="play-btn">▶</button>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats">
+            <div class="stat-item"><span class="stat-label">FPS:</span> <span id="fps">60</span></div>
+            <div class="stat-item"><span class="stat-label">Mode:</span> <span id="mode-name">Bars</span></div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIG ====================
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: false });
+        
+        let audioContext;
+        let analyser;
+        let source;
+        let dataArray;
+        let bufferLength;
+        let audioElement = new Audio();
+        audioElement.crossOrigin = "anonymous";
+        
+        let isPlaying = false;
+        let currentMode = 0;
+        let micStream = null;
+        let currentObjectURL = null;
+        
+        // Equalizer
+        const equalizerBands = [
+            { freq: 60, gain: 0, name: '60Hz' },
+            { freq: 150, gain: 0, name: '150Hz' },
+            { freq: 400, gain: 0, name: '400Hz' },
+            { freq: 1000, gain: 0, name: '1kHz' },
+            { freq: 2500, gain: 0, name: '2.5kHz' },
+            { freq: 6000, gain: 0, name: '6kHz' },
+            { freq: 15000, gain: 0, name: '15kHz' },
+            { freq: 20000, gain: 0, name: '20kHz' }
+        ];
+        
+        // Themes
+        const themes = {
+            cyberpunk: { bg: ['#0a0a1a', '#1a0a2a'], name: '🌐 Cyberpunk' },
+            ocean: { bg: ['#001a4d', '#0a2a4d'], name: '🌊 Ocean' },
+            fire: { bg: ['#2a0a00', '#4d1a0a'], name: '🔥 Fire' },
+            forest: { bg: ['#0a2a0a', '#0a4d1a'], name: '🌲 Forest' },
+            space: { bg: ['#1a0a2a', '#2a1a4d'], name: '🚀 Space' },
+            synthwave: { bg: ['#2a0033', '#4d0a4d'], name: '🌅 Synthwave' }
+        };
+        let currentTheme = 'cyberpunk';
+        
+        // Stats
+        let frameCount = 0;
+        let fps = 60;
+        let lastTime = Date.now();
+        
+        // Spectro buffer
+        let spectroBuffer = [];
+        const SPECTRO_HEIGHT = 150;
+        
+        // Modes
+        const modes = [
+            'Bars', 'Circular', 'Waveform', 'Spectrogram',
+            'Particles', 'Kaleidoscope', 'Fractals', 'Bloom', 'Neural'
+        ];
+        
+        // ==================== INIT ====================
+        
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            spectroBuffer = Array(canvas.width).fill(0).map(() => Array(SPECTRO_HEIGHT).fill(0));
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+        
+        async function initAudio() {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.8;
+            bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+        }
+        
+        // ==================== UI SETUP ====================
+        
+        function setupUI() {
+            // Mode buttons
+            const modeSelector = document.getElementById('mode-selector');
+            modes.forEach((mode, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'mode-btn' + (index === 0 ? ' active' : '');
+                btn.textContent = mode;
+                btn.onclick = () => setMode(index);
+                modeSelector.appendChild(btn);
+            });
+            
+            // EQ bands
+            const eqBands = document.getElementById('eq-bands');
+            equalizerBands.forEach((band, index) => {
+                const div = document.createElement('div');
+                div.className = 'eq-band';
+                div.innerHTML = `
+                    <label>${band.name}</label>
+                    <input type="range" min="-1" max="1" step="0.1" value="0"
+                        onchange="equalizerBands[${index}].gain = this.value">
+                `;
+                eqBands.appendChild(div);
+            });
+            
+            // Theme buttons
+            const themeButtons = document.getElementById('theme-buttons');
+            Object.entries(themes).forEach(([key, theme]) => {
+                const btn = document.createElement('button');
+                btn.className = 'theme-btn' + (key === 'cyberpunk' ? ' active' : '');
+                btn.textContent = theme.name;
+                btn.onclick = () => switchTheme(key, btn);
+                themeButtons.appendChild(btn);
+            });
+        }
+        
+        function setMode(index) {
+            currentMode = index;
+            document.querySelectorAll('.mode-btn').forEach((b, i) => {
+                b.classList.toggle('active', i === index);
+            });
+            document.getElementById('mode-name').textContent = modes[index];
+        }
+        
+        function switchTheme(themeKey, btn) {
+            currentTheme = themeKey;
+            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+        
+        // ==================== DRAWING ====================
+        
+        function drawBackground() {
+            const theme = themes[currentTheme];
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, theme.bg[0]);
+            gradient.addColorStop(1, theme.bg[1]);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        function drawBars() {
+            drawBackground();
+            const barWidth = (canvas.width / bufferLength) * 2.5;
+            let x = 0;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * 150;
+                const ratio = i / bufferLength;
+                
+                const hue = ratio * 360;
+                const saturation = 100;
+                const lightness = 50 + (dataArray[i] / 255) * 30;
+                
+                ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
+                x += barWidth;
+            }
+        }
+        
+        function drawCircular() {
+            drawBackground();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(centerX, centerY) * 0.6;
+            
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 2;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const amplitude = dataArray[i] / 255;
+                const angle = (i / bufferLength) * Math.PI * 2;
+                const r = radius + amplitude * 200;
+                
+                const x = centerX + Math.cos(angle) * r;
+                const y = centerY + Math.sin(angle) * r;
+                
+                if (i === 0) ctx.beginPath();
+                ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+        }
+        
+        function drawWaveform() {
+            drawBackground();
+            const centerY = canvas.height / 2;
+            const sliceWidth = canvas.width / bufferLength;
+            
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f3ff';
+            ctx.beginPath();
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                const x = i * sliceWidth;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+        }
+        
+        function drawSpectrogram() {
+            // Shift rows up
+            for (let y = 0; y < SPECTRO_HEIGHT - 1; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    spectroBuffer[x][y] = spectroBuffer[x][y + 1];
+                }
+            }
+            
+            // Add new row
+            const step = Math.max(1, Math.floor(bufferLength / canvas.width));
+            for (let x = 0; x < canvas.width; x++) {
+                let sum = 0, count = 0;
+                for (let k = 0; k < step && (x * step + k) < bufferLength; k++) {
+                    sum += dataArray[x * step + k];
+                    count++;
+                }
+                spectroBuffer[x][SPECTRO_HEIGHT - 1] = count > 0 ? sum / count : 0;
+            }
+            
+            drawBackground();
+            
+            // Draw
+            const startY = canvas.height - SPECTRO_HEIGHT;
+            const imgData = ctx.getImageData(0, startY, canvas.width, SPECTRO_HEIGHT);
+            const data = imgData.data;
+            
+            for (let y = 0; y < SPECTRO_HEIGHT; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    const val = spectroBuffer[x][y];
+                    const index = (y * canvas.width + x) * 4;
+                    
+                    data[index] = Math.min(255, val * 2);
+                    data[index + 1] = Math.min(255, val);
+                    data[index + 2] = 255;
+                    data[index + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, startY);
+        }
+        
+        function drawParticles() {
+            drawBackground();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < bufferLength; i += 4) {
+                const amplitude = dataArray[i] / 255;
+                const angle = (i / bufferLength) * Math.PI * 2;
+                const distance = 100 + amplitude * 200;
+                
+                const x = centerX + Math.cos(angle) * distance;
+                const y = centerY + Math.sin(angle) * distance;
+                
+                ctx.fillStyle = `hsl(${i / bufferLength * 360}, 100%, 50%)`;
+                ctx.beginPath();
+                ctx.arc(x, y, 2 + amplitude * 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawKaleidoscope() {
+            drawBackground();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const symmetry = 6;
+            const baseRadius = Math.min(centerX, centerY) * 0.5;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const amplitude = dataArray[i] / 255;
+                const angle = (i / bufferLength) * (Math.PI * 2 / symmetry);
+                const radius = baseRadius + amplitude * 150;
+                
+                for (let s = 0; s < symmetry; s++) {
+                    const rotatedAngle = angle + (s * Math.PI * 2 / symmetry);
+                    const x = centerX + Math.cos(rotatedAngle) * radius;
+                    const y = centerY + Math.sin(rotatedAngle) * radius;
+                    
+                    ctx.fillStyle = `hsl(${i / bufferLength * 360}, 100%, 50%)`;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+        
+        function drawFractals() {
+            drawBackground();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const amplitude = dataArray[i] / 255;
+                const angle = (i / bufferLength) * Math.PI * 2;
+                const distance = 50 + amplitude * 200;
+                
+                const x = centerX + Math.cos(angle) * distance;
+                const y = centerY + Math.sin(angle) * distance;
+                
+                ctx.fillStyle = `hsl(${amplitude * 360}, 100%, ${50 + amplitude * 30}%)`;
+                ctx.beginPath();
+                ctx.arc(x, y, 1 + amplitude * 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        
+        function drawBloom() {
+            drawBackground();
+            const barWidth = canvas.width / bufferLength;
+            
+            for (let i = 0; i < bufferLength; i++) {
+                const height = (dataArray[i] / 255) * canvas.height * 0.7;
+                const hue = i / bufferLength * 360;
+                
+                // Main bar
+                ctx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                ctx.fillRect(i * barWidth, canvas.height - height, barWidth - 1, height);
+                
+                // Glow
+                ctx.fillStyle = `hsla(${hue}, 100%, 50%, 0.2)`;
+                ctx.fillRect(i * barWidth - 5, canvas.height - height - 15, barWidth + 10, 15);
+            }
+        }
+        
+        function drawNeural() {
+            drawBackground();
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const bands = 8;
+            const bandSize = Math.floor(bufferLength / bands);
+            
+            for (let band = 0; band < bands; band++) {
+                let magnitude = 0;
+                for (let i = 0; i < bandSize && band * bandSize + i < bufferLength; i++) {
+                    magnitude += dataArray[band * bandSize + i];
+                }
+                magnitude = magnitude / bandSize / 255;
+                
+                const radius = (band + 1) * 30 + magnitude * 100;
+                const hue = band / bands * 360;
+                
+                ctx.strokeStyle = `hsl(${hue}, 100%, ${30 + magnitude * 50}%)`;
+                ctx.lineWidth = 2 + magnitude * 5;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+        
+        // ==================== ANALYZE ====================
+        
+        function analyzeFrequency() {
+            const bass = Array.from(dataArray.slice(0, 10)).reduce((a, b) => a + b) / 10;
+            const mids = Array.from(dataArray.slice(10, 60)).reduce((a, b) => a + b) / 50;
+            const treble = Array.from(dataArray.slice(60)).reduce((a, b) => a + b) / (bufferLength - 60);
+            
+            if (bass > 100 && mids > 80) return '🔥 Dubstep/Trap';
+            if (bass < 50 && treble > 120) return '🎻 Classical';
+            if (mids > 100 && treble > 80) return '🎸 Rock/Metal';
+            if (bass > 100 && mids < 60) return '🥁 Hip-Hop';
+            return '🎵 Mixed';
+        }
+        
+        // ==================== ANIMATION LOOP ====================
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            if (!analyser) return;
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            switch (currentMode) {
+                case 0: drawBars(); break;
+                case 1: drawCircular(); break;
+                case 2: drawWaveform(); break;
+                case 3: drawSpectrogram(); break;
+                case 4: drawParticles(); break;
+                case 5: drawKaleidoscope(); break;
+                case 6: drawFractals(); break;
+                case 7: drawBloom(); break;
+                case 8: drawNeural(); break;
+            }
+            
+            // Update stats
+            frameCount++;
+            const now = Date.now();
+            if (now - lastTime >= 1000) {
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = now;
+                document.getElementById('fps').textContent = fps;
+            }
+            
+            // Update genre
+            if (isPlaying) {
+                document.getElementById('genre-text').textContent = analyzeFrequency();
+            }
+        }
+        
+        // ==================== CONTROLS ====================
+        
+        const playBtn = document.getElementById('play-btn');
+        const statusText = document.getElementById('status-text');
+        
+        function togglePlay() {
+            if (!audioContext) initAudio();
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            if (isPlaying) {
+                audioElement.pause();
+                playBtn.textContent = '▶';
+                statusText.textContent = '⏸ Paused';
+            } else {
+                if (audioElement.src) {
+                    audioElement.play();
+                    playBtn.textContent = '⏸';
+                    statusText.textContent = '▶ Playing';
+                } else {
+                    statusText.textContent = '📂 Load file first';
+                }
+            }
+            isPlaying = !isPlaying;
+        }
+        
+        playBtn.onclick = togglePlay;
+        
+        // File upload
+        document.getElementById('audio-upload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            
+            const url = URL.createObjectURL(file);
+            currentObjectURL = url;
+            audioElement.src = url;
+            
+            if (!audioContext) initAudio();
+            if (source) source.disconnect();
+            
+            source = audioContext.createMediaElementAudioSource(audioElement);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            
+            audioElement.play();
+            isPlaying = true;
+            playBtn.textContent = '⏸';
+            statusText.textContent = '▶ ' + file.name.substring(0, 20);
+            
+            if (micStream) toggleMic();
+        });
+        
+        // Microphone
+        async function toggleMic() {
+            if (!audioContext) initAudio();
+            if (audioContext.state === 'suspended') audioContext.resume();
+            
+            const btn = document.getElementById('mic-btn');
+            
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+                micStream = null;
+                btn.classList.remove('active');
+                statusText.textContent = '🎙️ Off';
+            } else {
+                try {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    if (source) source.disconnect();
+                    
+                    source = audioContext.createMediaStreamSource(micStream);
+                    source.connect(analyser);
+                    analyser.connect(audioContext.destination);
+                    
+                    btn.classList.add('active');
+                    statusText.textContent = '🎙️ On';
+                } catch (err) {
+                    alert('Microphone access denied!');
+                }
+            }
+        }
+        
+        document.getElementById('mic-btn').onclick = toggleMic;
+        document.getElementById('eq-btn').onclick = () => {
+            document.getElementById('eq-panel').classList.toggle('active');
+        };
+        document.getElementById('theme-btn').onclick = () => {
+            document.getElementById('theme-panel').classList.toggle('active');
+        };
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+            if (micStream) micStream.getTracks().forEach(track => track.stop());
+        });
+        
+        // Start
+        setupUI();
+        animate();
+    </script>
+</body>
+</html>
